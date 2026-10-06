@@ -1,0 +1,15 @@
+{
+  "name": "Field Chemical Log",
+  "short_name": "Field Log",
+  "description": "Offline record of chemical applications by field, with rate math and Excel export.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5f2",
+  "theme_color": "#2f6b3a",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

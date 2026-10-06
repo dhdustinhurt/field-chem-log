@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Field Log">
+<meta name="theme-color" content="#2f6b3a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Field Chemical Log</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f4f5f2; --card:#ffffff; --ink:#1a1c19; --muted:#6b7169; --line:#dcdfd8;
+  --accent:#2f6b3a; --accent-ink:#ffffff; --warn:#8a4b12; --warn-bg:#fdf1e3;
+  --danger:#a32020; --field:#ffffff; --shadow:0 1px 2px rgba(0,0,0,.06),0 1px 8px rgba(0,0,0,.04);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14160f; --card:#1e211a; --ink:#e9ece4; --muted:#9aa192; --line:#333829;
+        --accent:#7fbf8a; --accent-ink:#0e1a10; --warn:#e0a765; --warn-bg:#3a2a14;
+        --danger:#f08a8a; --field:#171a12; --shadow:none;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-text-size-adjust:100%}
+body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:20;background:var(--accent);color:var(--accent-ink);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px;flex:1}
+header button{background:rgba(255,255,255,.18);color:inherit;border:0;border-radius:8px;
+  padding:7px 12px;font-size:14px;font-weight:600;white-space:nowrap}
+main{padding:14px 14px 24px;max-width:760px;margin:0 auto}
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;
+  margin-bottom:12px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:15px;font-weight:650}
+.card h2 .sub{font-weight:400;color:var(--muted);font-size:13px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;margin:12px 0 5px;min-height:15px}
+label:first-child{margin-top:0}
+.row>div>label{display:flex;align-items:flex-end;min-height:30px;margin-top:0}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border-radius:9px;
+  border:1px solid var(--line);background:var(--field);color:var(--ink);appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),
+  linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
+textarea{min-height:70px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.row{display:flex;gap:10px;align-items:flex-start}.row>*{flex:1;min-width:0}
+.btn{display:inline-block;width:100%;text-align:center;background:var(--accent);
+  color:var(--accent-ink);border:0;border-radius:10px;padding:14px;font-size:16px;
+  font-weight:650;margin-top:14px}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+.btn.sm{width:auto;padding:8px 14px;font-size:14px;margin:0}
+.btn.del{background:transparent;color:var(--danger);border:1.5px solid var(--danger)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;
+  background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:var(--muted);padding:9px 2px 8px;
+  font-size:10px;font-weight:600;letter-spacing:.3px}
+nav button .ic{display:block;font-size:20px;line-height:1.2}
+nav button.on{color:var(--accent)}
+.item{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;
+  margin-bottom:9px;box-shadow:var(--shadow)}
+.item .t{font-weight:650;font-size:15px}
+.item .d{color:var(--muted);font-size:13px;margin-top:3px}
+.item .tags{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
+.tag{background:var(--bg);border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font-size:11.5px;color:var(--muted)}
+.tag.rup{background:var(--warn-bg);border-color:var(--warn);color:var(--warn);font-weight:700}
+.tag.unver{background:var(--warn-bg);border-color:var(--warn);color:var(--warn);font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:44px 20px;font-size:14px}
+.calc{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:12px;margin-top:12px}
+.calc .l{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:14px}
+.calc .l span:first-child{color:var(--muted)}
+.calc .l span:last-child{font-weight:650;font-variant-numeric:tabular-nums;text-align:right}
+.calc h3{margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.calc hr{border:0;border-top:1px solid var(--line);margin:9px 0}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:9px 11px;
+  font-size:13px;margin-top:9px;font-weight:600}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;
+  font-size:12.5px;line-height:1.45;margin-top:10px}
+.mixrow{border:1px solid var(--line);border-radius:10px;padding:11px;margin-bottom:9px;background:var(--bg)}
+.mixrow .top{display:flex;gap:8px;align-items:center}
+.mixrow .top select{flex:1}
+.airow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.airow input:first-child{flex:2}.airow input:nth-child(2){flex:1}
+.airow .u{flex:0 0 auto;font-size:13px;color:var(--muted);white-space:nowrap}
+.x{background:none;border:0;color:var(--danger);font-size:22px;padding:0 4px;line-height:1;width:auto;flex:0 0 auto}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));
+  background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:14px;
+  font-weight:600;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw;text-align:center}
+.toast.on{opacity:.96}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{flex:1;background:var(--field);border:0;color:var(--muted);padding:10px;font-size:14px;font-weight:600}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 12px}
+.hd h2{margin:0;font-size:19px;font-weight:700;flex:1}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch}
+.chips button{flex:0 0 auto;background:var(--card);border:1px solid var(--line);color:var(--muted);
+  border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.grp{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.6px;margin:16px 0 7px}
+.chk{display:flex;align-items:flex-start;gap:10px;margin-top:14px;font-size:14px;line-height:1.4}
+.chk input{width:22px;height:22px;flex:0 0 auto;margin-top:1px;accent-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="hTitle">Field Chemical Log</h1>
+  <button id="hBack" style="display:none">Cancel</button>
+</header>
+
+<main>
+
+<!-- ================= LOG ================= -->
+<section id="v-log" class="view on">
+  <div class="hd"><h2>Applications</h2><button class="btn sm" onclick="newApp()">+ New</button></div>
+  <div id="logList"></div>
+</section>
+
+<!-- ================= APPLICATION FORM ================= -->
+<section id="v-app" class="view">
+  <div class="card">
+    <h2>When &amp; where</h2>
+    <div class="row">
+      <div><label>Date</label><input type="date" id="f_date" onchange="recalc()"></div>
+      <div><label>Start</label><input type="time" id="f_start"></div>
+      <div><label>End</label><input type="time" id="f_end"></div>
+    </div>
+    <label>Field</label>
+    <select id="f_field" onchange="fieldPicked()"></select>
+    <div class="row">
+      <div><label>Acres treated</label><input type="number" inputmode="decimal" step="0.1" id="f_acres" oninput="recalc()"></div>
+      <div><label>Crop</label><input type="text" id="f_crop" autocapitalize="words"></div>
+    </div>
+    <label>GPS (optional)</label>
+    <div class="row">
+      <input type="text" id="f_gps" placeholder="not recorded" readonly>
+      <button class="btn sm ghost" style="flex:0 0 auto" onclick="grabGPS()">Pin</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Spray setup <span class="sub">drives the rate math</span></h2>
+    <div class="row">
+      <div><label>Gal water / acre</label><input type="number" inputmode="decimal" step="0.1" id="f_gpa" oninput="recalc()"></div>
+      <div><label>Tank size (gal)</label><input type="number" inputmode="decimal" step="1" id="f_tank" oninput="recalc()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tank mix</h2>
+    <div id="mixRows"></div>
+    <button class="btn ghost" onclick="addMixRow()">+ Add product</button>
+    <div id="calcOut"></div>
+  </div>
+
+  <div class="card">
+    <h2>Conditions &amp; target</h2>
+    <div class="row">
+      <div><label>Wind (mph)</label><input type="number" inputmode="decimal" step="0.1" id="f_wind"></div>
+      <div><label>Direction</label>
+        <select id="f_winddir"><option value=""></option><option>N</option><option>NE</option><option>E</option>
+        <option>SE</option><option>S</option><option>SW</option><option>W</option><option>NW</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Temp (&deg;F)</label><input type="number" inputmode="decimal" step="1" id="f_temp"></div>
+      <div><label>Humidity (%)</label><input type="number" inputmode="decimal" step="1" id="f_hum"></div>
+    </div>
+    <label>Sky / conditions</label>
+    <input type="text" id="f_sky" placeholder="clear, overcast, light dew...">
+    <label>Target pest / purpose</label>
+    <input type="text" id="f_pest" placeholder="waterhemp, corn rootworm, cover crop burndown...">
+  </div>
+
+  <div class="card">
+    <h2>Applicator</h2>
+    <div class="row">
+      <div><label>Name</label><input type="text" id="f_appl" autocapitalize="words"></div>
+      <div><label>License #</label><input type="text" id="f_lic"></div>
+    </div>
+    <label>Equipment</label>
+    <input type="text" id="f_equip" placeholder="sprayer / nozzle / PSI">
+    <label>Notes</label>
+    <textarea id="f_notes"></textarea>
+  </div>
+
+  <button class="btn" onclick="saveApp()">Save application</button>
+  <button class="btn del" id="appDelBtn" style="display:none" onclick="delApp()">Delete this record</button>
+</section>
+
+<!-- ================= FIELDS ================= -->
+<section id="v-fields" class="view">
+  <div class="hd"><h2>Fields</h2><button class="btn sm" onclick="editField(null)">+ New</button></div>
+  <div id="fieldList"></div>
+</section>
+
+<section id="v-field" class="view">
+  <div class="card">
+    <label>Field name</label><input type="text" id="fl_name" autocapitalize="words" placeholder="Home 80, NE Quarter...">
+    <div class="row">
+      <div><label>Acres</label><input type="number" inputmode="decimal" step="0.1" id="fl_acres"></div>
+      <div><label>Crop</label><input type="text" id="fl_crop" autocapitalize="words"></div>
+    </div>
+    <label>Legal / location</label><input type="text" id="fl_loc" placeholder="Sec 14 T10N R6E, or county road">
+    <label>Notes</label><textarea id="fl_notes"></textarea>
+  </div>
+  <button class="btn" onclick="saveField()">Save field</button>
+  <button class="btn del" id="fieldDelBtn" style="display:none" onclick="delField()">Delete field</button>
+</section>
+
+<!-- ================= PRODUCTS ================= -->
+<section id="v-products" class="view">
+  <div class="hd"><h2>Chemicals</h2>
+    <button class="btn sm ghost" onclick="openLibrary()">Library</button>
+    <button class="btn sm" onclick="editProd(null)">+ New</button></div>
+  <div id="prodList"></div>
+</section>
+
+<!-- ================= LIBRARY ================= -->
+<section id="v-library" class="view">
+  <input type="text" id="lib_q" placeholder="Search product or active ingredient..." oninput="renderLibrary()">
+  <div class="chips" id="lib_chips"></div>
+  <div class="note">Starter data for Nebraska corn, soybean and cover-crop programs. Product names,
+    active ingredients and typical rates are here to save you typing &mdash; <b>EPA numbers and a.i.
+    concentrations still have to be checked against the jug you actually have.</b> They differ between
+    generics, formulations and label revisions. Anything added from here is flagged
+    <b>verify label</b> until you confirm it.</div>
+  <div id="libList"></div>
+</section>
+
+<section id="v-product" class="view">
+  <div class="card">
+    <label>Product name</label><input type="text" id="pr_name" autocapitalize="words" placeholder="Roundup PowerMAX">
+    <div class="row">
+      <div><label>EPA reg. no.</label><input type="text" id="pr_epa" placeholder="524-549"></div>
+      <div><label>Signal word</label>
+        <select id="pr_signal"><option value=""></option><option>Caution</option><option>Warning</option><option>Danger</option></select></div>
+    </div>
+    <label>Formulation</label>
+    <div class="seg">
+      <button type="button" id="pr_liq" onclick="setForm('liquid')">Liquid</button>
+      <button type="button" id="pr_dry" onclick="setForm('dry')">Dry</button>
+    </div>
+    <label>Active ingredients <span id="pr_aiUnit" style="text-transform:none;font-weight:400"></span></label>
+    <div id="pr_ais"></div>
+    <button class="btn ghost sm" style="width:100%;margin-top:4px" onclick="addAIRow()">+ Add active ingredient</button>
+    <div class="hint" id="pr_aiHint"></div>
+    <div class="row" style="margin-top:12px">
+      <div><label>Default rate</label><input type="number" inputmode="decimal" step="0.01" id="pr_rate"></div>
+      <div><label>Per acre</label><select id="pr_unit"></select></div>
+    </div>
+    <div class="row">
+      <div><label>REI (hours)</label><input type="number" inputmode="decimal" step="1" id="pr_rei"></div>
+      <div><label>PHI (days)</label><input type="number" inputmode="decimal" step="1" id="pr_phi"></div>
+    </div>
+    <label class="chk" style="text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);font-weight:500">
+      <input type="checkbox" id="pr_rup"> Restricted use pesticide
+    </label>
+    <label class="chk" style="text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);font-weight:500">
+      <input type="checkbox" id="pr_ver"> I checked this against the actual label
+    </label>
+    <label>Notes</label><textarea id="pr_notes"></textarea>
+  </div>
+  <button class="btn" onclick="saveProd()">Save product</button>
+  <button class="btn del" id="prodDelBtn" style="display:none" onclick="delProd()">Delete product</button>
+</section>
+
+<!-- ================= EXPORT ================= -->
+<section id="v-export" class="view">
+  <div class="hd"><h2>Export &amp; backup</h2></div>
+
+  <div class="card">
+    <h2>Excel workbook</h2>
+    <div class="hint">Six sheets: every product line, active ingredient detail, one row per pass,
+      season a.i. totals by field, plus your fields and chemicals.</div>
+    <label>Season / year</label>
+    <select id="ex_year"></select>
+    <button class="btn" onclick="exportXLSX()">Export .xlsx</button>
+    <button class="btn ghost" onclick="exportCSV()">Export .csv instead</button>
+    <div class="hint">On iPhone/iPad the share sheet opens &mdash; choose <b>Save to Files</b>, or send it
+      straight to Mail.</div>
+  </div>
+
+  <div class="card">
+    <h2>Season limits <span class="sub">lb a.i. per acre</span></h2>
+    <div class="hint">Set a per-season cap on any active ingredient and the app warns you when a new
+      pass would push a field over it. Caps are per a.i., so every product containing it counts &mdash;
+      atrazine in a premix adds to straight atrazine.</div>
+    <div id="limitList"></div>
+  </div>
+
+  <div class="card">
+    <h2>Backup</h2>
+    <div class="hint">Everything lives only on this device. Nothing is uploaded anywhere. If the phone
+      is lost or the app is deleted, the data goes with it &mdash; save a backup file somewhere
+      now and then.</div>
+    <button class="btn ghost" onclick="backup()">Save backup file</button>
+    <button class="btn ghost" onclick="document.getElementById('restoreFile').click()">Restore from backup</button>
+    <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restore(this)">
+  </div>
+
+  <div class="card">
+    <h2>Defaults</h2>
+    <label>Applicator name</label><input type="text" id="s_appl" autocapitalize="words">
+    <label>License #</label><input type="text" id="s_lic">
+    <div class="row">
+      <div><label>Default gal/acre</label><input type="number" inputmode="decimal" step="0.1" id="s_gpa"></div>
+      <div><label>Default tank (gal)</label><input type="number" inputmode="decimal" step="1" id="s_tank"></div>
+    </div>
+    <button class="btn" onclick="saveSettings()">Save defaults</button>
+  </div>
+
+  <div class="card">
+    <h2>About</h2>
+    <div class="hint" id="aboutTxt"></div>
+  </div>
+</section>
+
+</main>
+
+<nav>
+  <button id="n-log"      class="on" onclick="go('log')"><span class="ic">&#128203;</span>Log</button>
+  <button id="n-app"                 onclick="newApp()"><span class="ic">&#10133;</span>New</button>
+  <button id="n-fields"              onclick="go('fields')"><span class="ic">&#127807;</span>Fields</button>
+  <button id="n-products"            onclick="go('products')"><span class="ic">&#129514;</span>Chemicals</button>
+  <button id="n-export"              onclick="go('export')"><span class="ic">&#128228;</span>Export</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Field Chemical Log - offline spray record keeping.
+   All data in localStorage on this device. No network calls.
+
+   Products carry a LIST of active ingredients, because most corn
+   herbicides are premixes and season limits apply per a.i. across
+   every product containing it - atrazine in Bicep counts against
+   the same cap as straight atrazine.
+   ============================================================ */
+
+const KEY = 'fcl.v1';
+const LIQ_UNITS = {'fl oz':1/128, 'pt':1/8, 'qt':1/4, 'gal':1};   // -> gallons
+const DRY_UNITS = {'oz':1/16, 'lb':1};                            // -> pounds
+
+/* ---------- starter product library ----------
+   n name · e EPA reg no · f form · a [[a.i. name, strength]] where strength is
+   lb a.i./gal for liquids and % by weight for dry · r/u default rate per acre ·
+   rei hours · phi days · rup restricted use · k category · c crops · note
+   Strengths and EPA numbers are STARTING POINTS. Verify against the label.  */
+const LIBRARY = [
+ // ---- burndown / non-selective ----
+ {k:'burn',n:'Roundup PowerMAX',e:'524-549',f:'liquid',a:[['glyphosate (K salt)',4.5]],r:32,u:'fl oz',rei:4,phi:7,c:'corn,soy,cover'},
+ {k:'burn',n:'Glyphosate 4L (generic)',e:'',f:'liquid',a:[['glyphosate (IPA salt)',3]],r:32,u:'fl oz',rei:4,c:'corn,soy,cover'},
+ {k:'burn',n:'Liberty 280 SL',e:'264-829',f:'liquid',a:[['glufosinate-ammonium',2.34]],r:32,u:'fl oz',rei:12,phi:70,c:'corn,soy'},
+ {k:'burn',n:'Gramoxone SL 3.0',e:'100-1431',f:'liquid',a:[['paraquat dichloride',3]],r:2,u:'pt',rei:12,rup:1,c:'corn,soy,cover',
+   note:'Paraquat: certified applicator only, plus the EPA paraquat-specific training. Closed-system transfer required.'},
+ {k:'burn',n:'Sharpen',e:'7969-278',f:'liquid',a:[['saflufenacil',2.85]],r:1,u:'fl oz',rei:12,c:'corn,soy,cover'},
+ {k:'burn',n:'2,4-D LV4 ester',e:'',f:'liquid',a:[['2,4-D (ester)',3.8]],r:1,u:'pt',rei:12,c:'corn,cover'},
+ {k:'burn',n:'Enlist One',e:'62719-695',f:'liquid',a:[['2,4-D choline',3.8]],r:32,u:'fl oz',rei:48,c:'corn,soy',
+   note:'Enlist traits only. Approved-tank-mix and nozzle list is label-enforced.'},
+ {k:'burn',n:'Enlist Duo',e:'62719-649',f:'liquid',a:[['2,4-D choline',1.6],['glyphosate (DMA salt)',1.67]],r:4.75,u:'pt',rei:48,c:'corn,soy'},
+ {k:'burn',n:'Clarity',e:'7969-137',f:'liquid',a:[['dicamba (DGA salt)',4]],r:16,u:'fl oz',rei:24,c:'corn,cover'},
+ {k:'burn',n:'Dicamba (OTT soybean)',e:'',f:'liquid',a:[['dicamba',null]],r:22,u:'fl oz',rei:24,c:'soy',
+   note:'Over-the-top dicamba registrations for soybean have been vacated and re-issued repeatedly. Confirm the product is currently registered for your use and state before applying.'},
+
+ // ---- corn preemergence ----
+ {k:'cornpre',n:'Atrazine 4L',e:'19713-70',f:'liquid',a:[['atrazine',4]],r:1.5,u:'qt',rei:12,rup:1,c:'corn',
+   note:'Nebraska: several NRDs restrict atrazine rate, timing and setbacks in groundwater management areas. Check your local NRD rules, not just the label.'},
+ {k:'cornpre',n:'Bicep II Magnum',e:'100-817',f:'liquid',a:[['S-metolachlor',2.4],['atrazine',3.1]],r:1.6,u:'qt',rei:24,rup:1,c:'corn'},
+ {k:'cornpre',n:'Dual II Magnum',e:'100-818',f:'liquid',a:[['S-metolachlor',7.62]],r:1.33,u:'pt',rei:24,c:'corn,soy'},
+ {k:'cornpre',n:'Harness',e:'',f:'liquid',a:[['acetochlor',7]],r:2,u:'pt',rei:12,c:'corn'},
+ {k:'cornpre',n:'Harness Xtra 5.6L',e:'',f:'liquid',a:[['acetochlor',3.1],['atrazine',2.5]],r:2.4,u:'qt',rei:12,rup:1,c:'corn'},
+ {k:'cornpre',n:'Acuron',e:'100-1466',f:'liquid',a:[['bicyclopyrone',0.29],['mesotrione',0.66],['S-metolachlor',2.14],['atrazine',1]],r:3,u:'qt',rei:12,rup:1,c:'corn'},
+ {k:'cornpre',n:'Lumax EZ',e:'100-1441',f:'liquid',a:[['S-metolachlor',2.49],['atrazine',0.93],['mesotrione',0.27]],r:2.5,u:'qt',rei:24,rup:1,c:'corn'},
+ {k:'cornpre',n:'Lexar EZ',e:'100-1442',f:'liquid',a:[['S-metolachlor',1.74],['atrazine',1.74],['mesotrione',0.22]],r:3,u:'qt',rei:24,rup:1,c:'corn'},
+ {k:'cornpre',n:'Balance Flexx',e:'264-1049',f:'liquid',a:[['isoxaflutole',2]],r:5,u:'fl oz',rei:12,c:'corn'},
+ {k:'cornpre',n:'Corvus',e:'264-1050',f:'liquid',a:[['isoxaflutole',2],['thiencarbazone-methyl',0.75]],r:5.6,u:'fl oz',rei:12,c:'corn'},
+ {k:'cornpre',n:'Verdict',e:'7969-263',f:'liquid',a:[['saflufenacil',0.98],['dimethenamid-P',5.25]],r:10,u:'fl oz',rei:12,c:'corn'},
+ {k:'cornpre',n:'Resicore',e:'62719-687',f:'liquid',a:[['acetochlor',3],['clopyralid',0.25],['mesotrione',0.29]],r:2.5,u:'qt',rei:24,c:'corn'},
+ {k:'cornpre',n:'SureStart II',e:'',f:'liquid',a:[['acetochlor',3.75],['clopyralid',0.29],['flumetsulam',0.29]],r:2,u:'pt',rei:24,c:'corn'},
+
+ // ---- corn postemergence ----
+ {k:'cornpost',n:'Callisto',e:'100-1131',f:'liquid',a:[['mesotrione',4]],r:3,u:'fl oz',rei:12,phi:45,c:'corn'},
+ {k:'cornpost',n:'Laudis',e:'264-860',f:'liquid',a:[['tembotrione',3.5]],r:3,u:'fl oz',rei:12,phi:45,c:'corn'},
+ {k:'cornpost',n:'Capreno',e:'264-1035',f:'liquid',a:[['tembotrione',2.88],['thiencarbazone-methyl',0.72]],r:3,u:'fl oz',rei:12,c:'corn'},
+ {k:'cornpost',n:'Impact',e:'34704-895',f:'liquid',a:[['topramezone',2.8]],r:0.75,u:'fl oz',rei:12,c:'corn'},
+ {k:'cornpost',n:'Halex GT',e:'100-1183',f:'liquid',a:[['glyphosate (K salt)',2.09],['S-metolachlor',1.5],['mesotrione',0.21]],r:3.6,u:'pt',rei:24,c:'corn'},
+ {k:'cornpost',n:'Status',e:'7969-150',f:'dry',a:[['dicamba (Na salt)',50.1],['diflufenzopyr',20]],r:5,u:'oz',rei:24,c:'corn'},
+ {k:'cornpost',n:'Steadfast Q',e:'',f:'dry',a:[['nicosulfuron',37.7],['rimsulfuron',18.8]],r:1.5,u:'oz',rei:4,c:'corn'},
+ {k:'cornpost',n:'Realm Q',e:'',f:'dry',a:[['rimsulfuron',18.8],['mesotrione',31.3]],r:4,u:'oz',rei:12,c:'corn'},
+
+ // ---- soybean preemergence ----
+ {k:'soypre',n:'Valor SX',e:'59639-99',f:'dry',a:[['flumioxazin',51]],r:3,u:'oz',rei:12,c:'soy'},
+ {k:'soypre',n:'Authority MTZ DF',e:'',f:'dry',a:[['sulfentrazone',18],['metribuzin',39.6]],r:10,u:'oz',rei:12,c:'soy'},
+ {k:'soypre',n:'Authority First DF',e:'',f:'dry',a:[['sulfentrazone',62.1],['cloransulam-methyl',7.8]],r:6.45,u:'oz',rei:12,c:'soy'},
+ {k:'soypre',n:'Warrant',e:'524-591',f:'liquid',a:[['acetochlor',3]],r:3,u:'pt',rei:12,c:'soy,corn'},
+ {k:'soypre',n:'Zidua SC',e:'7969-338',f:'liquid',a:[['pyroxasulfone',4.17]],r:3,u:'fl oz',rei:12,c:'soy,corn'},
+ {k:'soypre',n:'Metribuzin 75 DF',e:'',f:'dry',a:[['metribuzin',75]],r:8,u:'oz',rei:12,c:'soy'},
+ {k:'soypre',n:'Prefix',e:'100-1244',f:'liquid',a:[['S-metolachlor',4.34],['fomesafen',1.88]],r:2,u:'pt',rei:24,c:'soy'},
+ {k:'soypre',n:'Boundary 6.5 EC',e:'',f:'liquid',a:[['S-metolachlor',5.71],['metribuzin',0.79]],r:1.5,u:'pt',rei:24,c:'soy'},
+
+ // ---- soybean postemergence ----
+ {k:'soypost',n:'Flexstar',e:'100-1101',f:'liquid',a:[['fomesafen',1.88]],r:1.5,u:'pt',rei:24,phi:45,c:'soy'},
+ {k:'soypost',n:'Cobra',e:'59639-34',f:'liquid',a:[['lactofen',2]],r:12.5,u:'fl oz',rei:12,phi:45,c:'soy'},
+ {k:'soypost',n:'Classic',e:'352-728',f:'dry',a:[['chlorimuron-ethyl',25]],r:0.75,u:'oz',rei:12,phi:60,c:'soy'},
+ {k:'soypost',n:'FirstRate',e:'62719-289',f:'dry',a:[['cloransulam-methyl',84]],r:0.3,u:'oz',rei:12,c:'soy'},
+ {k:'soypost',n:'Select Max',e:'59639-132',f:'liquid',a:[['clethodim',0.97]],r:12,u:'fl oz',rei:24,phi:60,c:'soy,cover'},
+ {k:'soypost',n:'Assure II',e:'',f:'liquid',a:[['quizalofop-P-ethyl',0.88]],r:8,u:'fl oz',rei:12,c:'soy,cover'},
+ {k:'soypost',n:'Pursuit',e:'',f:'liquid',a:[['imazethapyr',2]],r:4,u:'fl oz',rei:4,c:'soy'},
+ {k:'soypost',n:'Raptor',e:'',f:'liquid',a:[['imazamox',1]],r:5,u:'fl oz',rei:4,c:'soy'},
+
+ // ---- insecticides ----
+ {k:'insect',n:'Warrior II with Zeon',e:'100-1295',f:'liquid',a:[['lambda-cyhalothrin',2.08]],r:1.92,u:'fl oz',rei:24,rup:1,c:'corn,soy'},
+ {k:'insect',n:'Besiege',e:'100-1402',f:'liquid',a:[['lambda-cyhalothrin',0.94],['chlorantraniliprole',1.25]],r:8,u:'fl oz',rei:24,rup:1,c:'corn,soy'},
+ {k:'insect',n:'Endigo ZC',e:'',f:'liquid',a:[['lambda-cyhalothrin',1.06],['thiamethoxam',0.72]],r:4,u:'fl oz',rei:24,rup:1,c:'corn,soy'},
+ {k:'insect',n:'Sivanto Prime',e:'264-1141',f:'liquid',a:[['flupyradifurone',1.67]],r:7,u:'fl oz',rei:4,c:'corn,soy'},
+ {k:'insect',n:'Chlorpyrifos 4E',e:'',f:'liquid',a:[['chlorpyrifos',4]],r:1,u:'pt',rei:24,rup:1,c:'corn',
+   note:'Chlorpyrifos food-use tolerances have been revoked, vacated and partly reinstated since 2021. Confirm current federal and Nebraska status before use.'},
+
+ // ---- fungicides ----
+ {k:'fung',n:'Headline AMP',e:'7969-224',f:'liquid',a:[['pyraclostrobin',0.99],['metconazole',0.33]],r:10,u:'fl oz',rei:12,phi:20,c:'corn,soy'},
+ {k:'fung',n:'Priaxor',e:'7969-251',f:'liquid',a:[['fluxapyroxad',2.08],['pyraclostrobin',4.16]],r:6,u:'fl oz',rei:12,c:'corn,soy'},
+ {k:'fung',n:'Quadris',e:'100-1098',f:'liquid',a:[['azoxystrobin',2.08]],r:9,u:'fl oz',rei:4,c:'corn,soy'},
+ {k:'fung',n:'Trivapro',e:'',f:'liquid',a:[['azoxystrobin',0.83],['propiconazole',0.83],['benzovindiflupyr',0.4]],r:13.7,u:'fl oz',rei:12,c:'corn'},
+ {k:'fung',n:'Miravis Neo',e:'100-1615',f:'liquid',a:[['pydiflumetofen',0.83],['azoxystrobin',0.83],['propiconazole',1.25]],r:13.7,u:'fl oz',rei:12,c:'corn,soy'},
+ {k:'fung',n:'Delaro Complete',e:'',f:'liquid',a:[['prothioconazole',1.29],['trifloxystrobin',1.29],['fluopyram',0.65]],r:8,u:'fl oz',rei:12,c:'corn,soy'},
+ {k:'fung',n:'Veltyma',e:'',f:'liquid',a:[['pyraclostrobin',1.67],['mefentrifluconazole',0.83]],r:7,u:'fl oz',rei:12,c:'corn'}
+];
+const CATS = [['all','All'],['burn','Burndown'],['cornpre','Corn pre'],['cornpost','Corn post'],
+              ['soypre','Soy pre'],['soypost','Soy post'],['insect','Insecticide'],['fung','Fungicide']];
+const CATNAME = {burn:'Burndown & non-selective', cornpre:'Corn — preemergence',
+  cornpost:'Corn — postemergence', soypre:'Soybean — preemergence',
+  soypost:'Soybean — postemergence', insect:'Insecticides', fung:'Fungicides'};
+
+let db = load();
+let editingApp = null, editingField = null, editingProd = null, prodForm = 'liquid';
+let libCat = 'all';
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return migrate(Object.assign({fields:[],products:[],apps:[],settings:{},aiLimits:{}}, JSON.parse(raw)));
+  }catch(e){ console.warn('load failed', e); }
+  return {v:2, fields:[], products:[], apps:[], settings:{}, aiLimits:{'atrazine':2.0}};
+}
+
+// v1 stored a single a.i. per product and a per-product season max.
+// v2 stores a list of a.i. and moves season caps to a per-a.i. table.
+function migrate(d){
+  if(!d.aiLimits) d.aiLimits = {};
+  if(!d.v || d.v < 2){
+    (d.products||[]).forEach(p => {
+      if(p.ais) return;
+      p.ais = [];
+      if(p.ai) p.ais.push({name:p.ai, amt:(p.form === 'dry' ? p.pctAI : p.lbAIperGal)});
+      if(p.maxAI && p.ai) d.aiLimits[p.ai.toLowerCase()] = p.maxAI;
+      p.verified = true;               // it was the user's own entry
+      delete p.ai; delete p.lbAIperGal; delete p.pctAI; delete p.maxAI;
+    });
+    d.v = 2;
+  }
+  return d;
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ toast('Could not save - storage full?'); }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const $ = id => document.getElementById(id);
+const val = id => $(id).value.trim();
+const num = id => { const n = parseFloat($(id).value); return isFinite(n) ? n : null; };
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (n,d=2) => n==null||!isFinite(n) ? '—' :
+  n.toLocaleString(undefined,{minimumFractionDigits:0, maximumFractionDigits:d});
+
+let toastTimer;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('on'), 2600);
+}
+
+/* ---------- navigation ---------- */
+const TITLES = {log:'Field Chemical Log', app:'Application', fields:'Fields', field:'Field',
+                products:'Chemicals', product:'Chemical', library:'Product Library',
+                export:'Export & Backup'};
+const BACKTO = {app:'log', field:'fields', product:'products', library:'products'};
+let view = 'log';
+function go(v){
+  view = v;
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-'+v));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('on'));
+  const tab = {app:'n-app', field:'n-fields', product:'n-products', library:'n-products'}[v] || 'n-'+v;
+  if($(tab)) $(tab).classList.add('on');
+  $('hTitle').textContent = TITLES[v] || 'Field Chemical Log';
+  $('hBack').style.display = BACKTO[v] ? '' : 'none';
+  $('hBack').textContent = v === 'library' ? 'Done' : 'Cancel';
+  window.scrollTo(0,0);
+  if(v==='log') renderLog();
+  if(v==='fields') renderFields();
+  if(v==='products') renderProds();
+  if(v==='library') renderLibrary();
+  if(v==='export') renderExport();
+}
+$('hBack').onclick = () => go(BACKTO[view] || 'log');
+
+/* ---------- rate math ---------- */
+// One product line of a tank mix. Returns totals plus a per-a.i. breakdown.
+function lineCalc(prod, rate, unit, acres, gpa, tank){
+  const o = {ratePerAcre:rate, unit, totalNative:null, totalPretty:'—', ais:[],
+             totalLbAI:null, perTank:null, acresPerTank:null, tanks:null};
+  if(!prod || rate == null || !isFinite(rate)) return o;
+
+  if(acres) o.totalNative = rate * acres;
+  const dry = prod.form === 'dry';
+  // Liquids reduce to gal/acre and multiply by lb a.i./gal.
+  // Dry products reduce to lb/acre and multiply by % a.i.
+  const base = dry ? rate * (DRY_UNITS[unit] || 0) : rate * (LIQ_UNITS[unit] || 0);
+
+  if(o.totalNative != null){
+    const tot = base * acres;
+    o.totalPretty = dry
+      ? (tot >= 1 ? fmt(tot,2)+' lb'  : fmt(tot*16,1)+' oz')
+      : (tot >= 1 ? fmt(tot,2)+' gal' : fmt(tot*128,1)+' fl oz');
+  }
+
+  let sum = 0;
+  for(const ai of (prod.ais || [])){
+    if(ai.amt == null || !isFinite(ai.amt)){ o.ais.push({name:ai.name, lbPerAcre:null, totalLb:null}); continue; }
+    const lbPerAcre = dry ? base * ai.amt / 100 : base * ai.amt;
+    const totalLb = acres ? lbPerAcre * acres : null;
+    o.ais.push({name:ai.name, lbPerAcre, totalLb});
+    sum += lbPerAcre;
+  }
+  if(o.ais.some(a => a.lbPerAcre != null)){
+    o.lbAIperAcre = sum;
+    if(acres) o.totalLbAI = sum * acres;
+  }
+
+  if(gpa > 0 && tank > 0){
+    o.acresPerTank = tank / gpa;
+    o.perTank = rate * o.acresPerTank;
+    if(acres) o.tanks = acres / o.acresPerTank;
+  }
+  return o;
+}
+
+// lb a.i./acre already applied to a field this season, keyed by a.i. name.
+// Sums across every product containing that a.i.
+function seasonAI(fieldId, year, skipAppId){
+  const out = {};
+  for(const a of db.apps){
+    if(a.fieldId !== fieldId || a.id === skipAppId) continue;
+    if((a.date||'').slice(0,4) !== String(year)) continue;
+    for(const m of (a.mix||[])){
+      const p = db.products.find(x => x.id === m.productId);
+      const c = lineCalc(p, m.rate, m.unit, 1, null, null);
+      for(const ai of c.ais){
+        if(ai.lbPerAcre == null) continue;
+        const k = ai.name.toLowerCase();
+        out[k] = (out[k] || 0) + ai.lbPerAcre;
+      }
+    }
+  }
+  return out;
+}
+const aiNames = p => (p.ais||[]).map(a => a.name).filter(Boolean);
+const aiSummary = p => (p.ais||[]).map(a =>
+  a.name + (a.amt != null ? ' ' + a.amt + (p.form === 'dry' ? '%' : ' lb/gal') : '')).join(' + ');
+
+/* ---------- application form ---------- */
+function newApp(){
+  editingApp = null;
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset()*60000);
+  $('f_date').value  = local.toISOString().slice(0,10);
+  $('f_start').value = local.toISOString().slice(11,16);
+  ['f_end','f_crop','f_gps','f_wind','f_winddir','f_temp','f_hum','f_sky','f_pest',
+   'f_equip','f_notes','f_acres'].forEach(id => $(id).value = '');
+  $('f_gpa').value  = db.settings.gpa  != null ? db.settings.gpa  : '';
+  $('f_tank').value = db.settings.tank != null ? db.settings.tank : '';
+  $('f_appl').value = db.settings.applicator || '';
+  $('f_lic').value  = db.settings.license || '';
+  fillFieldSelect(); fieldPicked();
+  $('mixRows').innerHTML = ''; addMixRow();
+  $('appDelBtn').style.display = 'none';
+  go('app');
+}
+
+function openApp(id){
+  const a = db.apps.find(x => x.id === id); if(!a) return;
+  editingApp = id;
+  fillFieldSelect(a.fieldId);
+  const set = (k,v) => $(k).value = (v == null ? '' : v);
+  set('f_date',a.date); set('f_start',a.start); set('f_end',a.end);
+  set('f_acres',a.acres); set('f_crop',a.crop); set('f_gps',a.gps);
+  set('f_gpa',a.gpa); set('f_tank',a.tank);
+  set('f_wind',a.wind); set('f_winddir',a.windDir); set('f_temp',a.temp); set('f_hum',a.hum);
+  set('f_sky',a.sky); set('f_pest',a.pest);
+  set('f_appl',a.applicator); set('f_lic',a.license); set('f_equip',a.equip); set('f_notes',a.notes);
+  $('mixRows').innerHTML = '';
+  (a.mix && a.mix.length ? a.mix : [{}]).forEach(m => addMixRow(m));
+  $('appDelBtn').style.display = '';
+  go('app');
+}
+
+function fillFieldSelect(sel){
+  const el = $('f_field');
+  el.innerHTML = '<option value="">- pick a field -</option>' +
+    db.fields.map(f => '<option value="'+f.id+'">'+esc(f.name)+(f.acres?' ('+f.acres+' ac)':'')+'</option>').join('');
+  if(sel) el.value = sel;
+}
+function fieldPicked(){
+  const f = db.fields.find(x => x.id === $('f_field').value);
+  if(f){
+    if(!val('f_acres') && f.acres) $('f_acres').value = f.acres;
+    if(!val('f_crop')  && f.crop)  $('f_crop').value  = f.crop;
+  }
+  recalc();
+}
+
+function addMixRow(m){
+  m = m || {};
+  const d = document.createElement('div');
+  d.className = 'mixrow';
+  d.innerHTML =
+    '<div class="top">' +
+      '<select class="mx-prod" onchange="prodPicked(this)">' +
+        '<option value="">- pick a chemical -</option>' +
+        db.products.map(p => '<option value="'+p.id+'">'+esc(p.name)+'</option>').join('') +
+      '</select>' +
+      '<button class="x" onclick="this.closest(\'.mixrow\').remove();recalc()">&times;</button>' +
+    '</div>' +
+    '<div class="row" style="margin-top:9px">' +
+      '<div><label>Rate</label>' +
+        '<input type="number" inputmode="decimal" step="0.01" class="mx-rate" oninput="recalc()"></div>' +
+      '<div><label>Per acre</label><select class="mx-unit" onchange="recalc()"></select></div>' +
+    '</div>';
+  $('mixRows').appendChild(d);
+  if(m.productId) d.querySelector('.mx-prod').value = m.productId;
+  fillUnits(d.querySelector('.mx-unit'), unitsFor(m.productId), m.unit);
+  if(m.rate != null) d.querySelector('.mx-rate').value = m.rate;
+  recalc();
+}
+
+function unitsFor(pid){
+  const p = db.products.find(x => x.id === pid);
+  return (p && p.form === 'dry') ? Object.keys(DRY_UNITS) : Object.keys(LIQ_UNITS);
+}
+function fillUnits(sel, units, chosen){
+  sel.innerHTML = units.map(u => '<option>'+u+'</option>').join('');
+  if(chosen && units.indexOf(chosen) >= 0) sel.value = chosen;
+}
+function prodPicked(sel){
+  const row = sel.closest('.mixrow');
+  const p = db.products.find(x => x.id === sel.value);
+  fillUnits(row.querySelector('.mx-unit'), unitsFor(sel.value));
+  if(p){
+    if(p.defRate != null && p.defRate !== '') row.querySelector('.mx-rate').value = p.defRate;
+    if(p.defUnit) row.querySelector('.mx-unit').value = p.defUnit;
+  }
+  recalc();
+}
+
+function readMix(){
+  return [].slice.call(document.querySelectorAll('#mixRows .mixrow')).map(r => ({
+    productId: r.querySelector('.mx-prod').value,
+    rate:      parseFloat(r.querySelector('.mx-rate').value),
+    unit:      r.querySelector('.mx-unit').value
+  })).filter(m => m.productId);
+}
+
+function recalc(){
+  const acres = num('f_acres'), gpa = num('f_gpa'), tank = num('f_tank');
+  const mix = readMix(), out = $('calcOut');
+  if(!mix.length){ out.innerHTML = ''; return; }
+
+  const water   = (acres && gpa) ? acres * gpa : null;
+  const acresTk = (gpa && tank)  ? tank / gpa  : null;
+  const year    = ($('f_date').value || '').slice(0,4);
+  const fieldId = $('f_field').value;
+
+  let h = '<div class="calc"><h3>Calculated</h3>';
+  h += '<div class="l"><span>Acres treated</span><span>'+fmt(acres,1)+' ac</span></div>';
+  h += '<div class="l"><span>Total spray volume</span><span>'+(water==null?'—':fmt(water,0)+' gal')+'</span></div>';
+  if(acresTk){
+    h += '<div class="l"><span>Acres per tank</span><span>'+fmt(acresTk,1)+' ac</span></div>';
+    if(acres) h += '<div class="l"><span>Tank loads</span><span>'+fmt(acres/acresTk,1)+'</span></div>';
+  }
+
+  const thisPass = {};                       // a.i. -> lb/ac applied in this pass
+  let noStrength = false;
+  for(const m of mix){
+    const p = db.products.find(x => x.id === m.productId); if(!p) continue;
+    const c = lineCalc(p, m.rate, m.unit, acres, gpa, tank);
+    h += '<hr>';
+    h += '<div class="l"><span style="color:var(--ink);font-weight:650">'+esc(p.name)+
+         (p.rup?' <span class="tag rup">RUP</span>':'')+'</span>' +
+         '<span style="font-weight:400;color:var(--muted)">'+fmt(m.rate,2)+' '+esc(m.unit)+'/ac</span></div>';
+    h += '<div class="l"><span>Total product</span><span>'+c.totalPretty+'</span></div>';
+    if(c.perTank != null)
+      h += '<div class="l"><span>Per full tank</span><span>'+fmt(c.perTank,2)+' '+esc(m.unit)+'</span></div>';
+    for(const ai of c.ais){
+      if(ai.lbPerAcre == null){
+        noStrength = true;
+        h += '<div class="l"><span>'+esc(ai.name)+'</span>' +
+             '<span style="font-weight:400;color:var(--muted)">strength not set</span></div>';
+      } else {
+        h += '<div class="l"><span>'+esc(ai.name)+'</span><span>'+fmt(ai.lbPerAcre,3)+' lb ai/ac</span></div>';
+        const k = ai.name.toLowerCase();
+        thisPass[k] = (thisPass[k] || 0) + ai.lbPerAcre;
+      }
+    }
+    if(c.totalLbAI != null)
+      h += '<div class="l"><span>Total a.i. this product</span><span>'+fmt(c.totalLbAI,2)+' lb</span></div>';
+  }
+  h += '</div>';
+
+  let extra = '';
+  if(noStrength)
+    extra += '<div class="warn">Some active ingredients have no strength recorded, so their lb ai/ac ' +
+             'is not being tracked. Add it on the Chemicals screen.</div>';
+
+  // Season caps are per a.i. across every product, so check the running field total.
+  if(fieldId && year){
+    const prior = seasonAI(fieldId, year, editingApp);
+    for(const k in thisPass){
+      const cap = db.aiLimits[k];
+      if(cap == null) continue;
+      const total = (prior[k] || 0) + thisPass[k];
+      if(total > cap + 1e-9)
+        extra += '<div class="warn">&#9888;&#65039; '+esc(k)+': this pass brings the field to ' +
+          fmt(total,3)+' lb ai/ac in '+year+' — over your '+fmt(cap,3)+' lb/ac season cap.</div>';
+    }
+  }
+  out.innerHTML = h + extra;
+}
+
+function grabGPS(){
+  if(!navigator.geolocation){ toast('No GPS on this device'); return; }
+  toast('Getting position...');
+  navigator.geolocation.getCurrentPosition(
+    p => { $('f_gps').value = p.coords.latitude.toFixed(5)+', '+p.coords.longitude.toFixed(5);
+           toast('Position saved'); },
+    e => toast('GPS unavailable: '+e.message),
+    {enableHighAccuracy:true, timeout:15000, maximumAge:60000});
+}
+
+function saveApp(){
+  const mix = readMix();
+  if(!$('f_field').value){ toast('Pick a field first'); return; }
+  if(!mix.length){ toast('Add at least one chemical'); return; }
+  const rec = {
+    id: editingApp || uid(),
+    date:val('f_date'), start:val('f_start'), end:val('f_end'),
+    fieldId:$('f_field').value, acres:num('f_acres'), crop:val('f_crop'), gps:val('f_gps'),
+    gpa:num('f_gpa'), tank:num('f_tank'), mix:mix,
+    wind:num('f_wind'), windDir:val('f_winddir'), temp:num('f_temp'), hum:num('f_hum'),
+    sky:val('f_sky'), pest:val('f_pest'),
+    applicator:val('f_appl'), license:val('f_lic'), equip:val('f_equip'), notes:val('f_notes')
+  };
+  const i = db.apps.findIndex(a => a.id === rec.id);
+  if(i >= 0) db.apps[i] = rec; else db.apps.push(rec);
+  save(); toast('Application saved'); go('log');
+}
+function delApp(){
+  if(!editingApp || !confirm('Delete this application record?')) return;
+  db.apps = db.apps.filter(a => a.id !== editingApp);
+  save(); toast('Deleted'); go('log');
+}
+
+function renderLog(){
+  const list = $('logList');
+  if(!db.apps.length){
+    list.innerHTML = (db.fields.length || db.products.length)
+      ? '<div class="empty">No applications logged yet.<br>Tap <b>+ New</b> to record one.</div>'
+      : '<div class="empty">Start by adding a <b>Field</b>, then load some chemicals from the<br><b>Library</b> on the Chemicals screen.</div>';
+    return;
+  }
+  const sorted = db.apps.slice().sort((a,b) =>
+    (b.date+(b.start||'')).localeCompare(a.date+(a.start||'')));
+  list.innerHTML = sorted.map(a => {
+    const f = db.fields.find(x => x.id === a.fieldId);
+    const names = (a.mix||[]).map(m => {
+      const p = db.products.find(x => x.id === m.productId);
+      return p ? '<span class="tag">'+esc(p.name)+' &middot; '+fmt(m.rate,2)+' '+esc(m.unit)+'/ac</span>' : '';
+    }).join('');
+    return '<div class="item" onclick="openApp(\''+a.id+'\')">' +
+      '<div class="t">'+esc(f ? f.name : 'Unknown field')+' &middot; '+fmt(a.acres,1)+' ac</div>' +
+      '<div class="d">'+esc(a.date)+(a.start?' '+esc(a.start):'')+
+        (a.pest?' &middot; '+esc(a.pest):'')+(a.gpa?' &middot; '+fmt(a.gpa,1)+' gpa':'')+'</div>' +
+      '<div class="tags">'+names+'</div></div>';
+  }).join('');
+}
+
+/* ---------- fields ---------- */
+function renderFields(){
+  $('fieldList').innerHTML = db.fields.length
+    ? db.fields.map(f => '<div class="item" onclick="editField(\''+f.id+'\')">' +
+        '<div class="t">'+esc(f.name)+'</div>' +
+        '<div class="d">'+(f.acres?fmt(f.acres,1)+' acres':'acres not set')+
+          (f.crop?' &middot; '+esc(f.crop):'')+(f.loc?' &middot; '+esc(f.loc):'')+'</div></div>').join('')
+    : '<div class="empty">No fields yet. Tap <b>+ New</b>.</div>';
+}
+function editField(id){
+  editingField = id;
+  const f = db.fields.find(x => x.id === id) || {};
+  $('fl_name').value = f.name || ''; $('fl_acres').value = f.acres != null ? f.acres : '';
+  $('fl_crop').value = f.crop || ''; $('fl_loc').value = f.loc || '';
+  $('fl_notes').value = f.notes || '';
+  $('fieldDelBtn').style.display = id ? '' : 'none';
+  go('field');
+}
+function saveField(){
+  if(!val('fl_name')){ toast('Name the field'); return; }
+  const rec = {id: editingField || uid(), name:val('fl_name'), acres:num('fl_acres'),
+               crop:val('fl_crop'), loc:val('fl_loc'), notes:val('fl_notes')};
+  const i = db.fields.findIndex(f => f.id === rec.id);
+  if(i >= 0) db.fields[i] = rec; else db.fields.push(rec);
+  db.fields.sort((a,b) => a.name.localeCompare(b.name));
+  save(); toast('Field saved'); go('fields');
+}
+function delField(){
+  const used = db.apps.filter(a => a.fieldId === editingField).length;
+  if(used){ toast('Used by '+used+' application'+(used>1?'s':'')+' - cannot delete'); return; }
+  if(!confirm('Delete this field?')) return;
+  db.fields = db.fields.filter(f => f.id !== editingField);
+  save(); toast('Deleted'); go('fields');
+}
+
+/* ---------- product library ---------- */
+function openLibrary(){ libCat = 'all'; $('lib_q').value = ''; go('library'); }
+
+function renderLibrary(){
+  $('lib_chips').innerHTML = CATS.map(c =>
+    '<button class="'+(libCat===c[0]?'on':'')+'" onclick="libCat=\''+c[0]+'\';renderLibrary()">'+c[1]+'</button>').join('');
+  const q = ($('lib_q').value || '').toLowerCase().trim();
+  const have = {}; db.products.forEach(p => have[p.name.toLowerCase()] = 1);
+
+  const hits = LIBRARY.filter(l => {
+    if(libCat !== 'all' && l.k !== libCat) return false;
+    if(!q) return true;
+    return (l.n + ' ' + l.a.map(x => x[0]).join(' ')).toLowerCase().indexOf(q) >= 0;
+  });
+  if(!hits.length){ $('libList').innerHTML = '<div class="empty">Nothing matches.</div>'; return; }
+
+  let out = '', last = '';
+  hits.forEach((l, i) => {
+    if(l.k !== last){ out += '<div class="grp">'+esc(CATNAME[l.k] || '')+'</div>'; last = l.k; }
+    const added = have[l.n.toLowerCase()];
+    const ais = l.a.map(x => x[0] + (x[1] != null ? ' ' + x[1] + (l.f==='dry'?'%':' lb/gal') : '')).join(' + ');
+    out += '<div class="item" onclick="addFromLibrary('+LIBRARY.indexOf(l)+')">' +
+      '<div class="t">'+esc(l.n)+(added?' <span class="tag">added</span>':'')+'</div>' +
+      '<div class="d">'+esc(ais)+'</div>' +
+      '<div class="tags">' +
+        '<span class="tag">'+(l.f==='dry'?'Dry':'Liquid')+'</span>' +
+        (l.r?'<span class="tag">'+l.r+' '+esc(l.u)+'/ac</span>':'') +
+        (l.e?'<span class="tag">EPA '+esc(l.e)+'</span>':'<span class="tag unver">no EPA no.</span>') +
+        (l.rup?'<span class="tag rup">RUP</span>':'') +
+      '</div>' +
+      (l.note?'<div class="note">'+esc(l.note)+'</div>':'') +
+      '</div>';
+  });
+  $('libList').innerHTML = out;
+}
+
+// Library entries open the normal product form pre-filled, so nothing is saved
+// until the user has looked at it.
+function addFromLibrary(i){
+  const l = LIBRARY[i]; if(!l) return;
+  editingProd = null;
+  setForm(l.f);
+  $('pr_name').value = l.n; $('pr_epa').value = l.e || ''; $('pr_signal').value = '';
+  $('pr_ais').innerHTML = '';
+  l.a.forEach(x => addAIRow({name:x[0], amt:x[1]}));
+  $('pr_rate').value = l.r != null ? l.r : '';
+  fillUnits($('pr_unit'), l.f === 'dry' ? Object.keys(DRY_UNITS) : Object.keys(LIQ_UNITS), l.u);
+  $('pr_rei').value = l.rei != null ? l.rei : ''; $('pr_phi').value = l.phi != null ? l.phi : '';
+  $('pr_rup').checked = !!l.rup;
+  $('pr_ver').checked = false;
+  $('pr_notes').value = l.note || '';
+  $('prodDelBtn').style.display = 'none';
+  go('product');
+  toast('Check the numbers against your label');
+}
+
+/* ---------- products ---------- */
+function renderProds(){
+  $('prodList').innerHTML = db.products.length
+    ? db.products.map(p => {
+        const missing = (p.ais||[]).some(a => a.amt == null) || !(p.ais||[]).length;
+        return '<div class="item" onclick="editProd(\''+p.id+'\')">' +
+          '<div class="t">'+esc(p.name)+'</div>' +
+          '<div class="d">'+esc(aiSummary(p) || 'no active ingredient recorded')+'</div>' +
+          '<div class="tags"><span class="tag">'+(p.form==='dry'?'Dry':'Liquid')+'</span>' +
+            (p.epa?'<span class="tag">EPA '+esc(p.epa)+'</span>':'') +
+            (p.defRate?'<span class="tag">'+fmt(p.defRate,2)+' '+esc(p.defUnit||'')+'/ac</span>':'') +
+            (p.rup?'<span class="tag rup">RUP</span>':'') +
+            (p.verified?'':'<span class="tag unver">verify label</span>') +
+            (missing?'<span class="tag unver">no a.i. strength</span>':'') +
+          '</div></div>';
+      }).join('')
+    : '<div class="empty">No chemicals yet.<br>Tap <b>Library</b> for the Nebraska starter list, or <b>+ New</b> to enter your own.</div>';
+}
+function setForm(f){
+  prodForm = f;
+  $('pr_liq').classList.toggle('on', f === 'liquid');
+  $('pr_dry').classList.toggle('on', f === 'dry');
+  $('pr_aiUnit').textContent = f === 'dry' ? '(% by weight)' : '(lb a.i. per gallon)';
+  $('pr_aiHint').textContent = f === 'dry'
+    ? 'Off the label: "contains 51% flumioxazin by weight" -> enter 51.'
+    : 'Off the label: "contains 4.5 lb glyphosate per gallon" -> enter 4.5. Premixes list one line each.';
+  const keep = $('pr_unit').value;
+  fillUnits($('pr_unit'), f === 'dry' ? Object.keys(DRY_UNITS) : Object.keys(LIQ_UNITS), keep);
+}
+function addAIRow(ai){
+  ai = ai || {};
+  const d = document.createElement('div');
+  d.className = 'airow';
+  d.innerHTML =
+    '<input type="text" class="ai-name" placeholder="active ingredient">' +
+    '<input type="number" inputmode="decimal" step="0.01" class="ai-amt" placeholder="strength">' +
+    '<button class="x" onclick="this.closest(\'.airow\').remove()">&times;</button>';
+  $('pr_ais').appendChild(d);
+  if(ai.name != null) d.querySelector('.ai-name').value = ai.name;
+  if(ai.amt  != null) d.querySelector('.ai-amt').value  = ai.amt;
+}
+function readAIs(){
+  return [].slice.call(document.querySelectorAll('#pr_ais .airow')).map(r => {
+    const n = r.querySelector('.ai-name').value.trim();
+    const v = parseFloat(r.querySelector('.ai-amt').value);
+    return {name:n, amt: isFinite(v) ? v : null};
+  }).filter(a => a.name);
+}
+function editProd(id){
+  editingProd = id;
+  const p = db.products.find(x => x.id === id) || {};
+  setForm(p.form || 'liquid');
+  const g = v => v != null ? v : '';
+  $('pr_name').value = p.name || ''; $('pr_epa').value = p.epa || '';
+  $('pr_signal').value = p.signal || '';
+  $('pr_ais').innerHTML = '';
+  ((p.ais && p.ais.length) ? p.ais : [{}]).forEach(a => addAIRow(a));
+  $('pr_rate').value = g(p.defRate);
+  fillUnits($('pr_unit'), (p.form==='dry'?Object.keys(DRY_UNITS):Object.keys(LIQ_UNITS)), p.defUnit);
+  $('pr_rei').value = g(p.rei); $('pr_phi').value = g(p.phi);
+  $('pr_rup').checked = !!p.rup;
+  $('pr_ver').checked = id ? !!p.verified : true;   // your own entry starts verified
+  $('pr_notes').value = p.notes || '';
+  $('prodDelBtn').style.display = id ? '' : 'none';
+  go('product');
+}
+function saveProd(){
+  if(!val('pr_name')){ toast('Name the chemical'); return; }
+  const rec = {id: editingProd || uid(), name:val('pr_name'), epa:val('pr_epa'),
+    signal:val('pr_signal'), form:prodForm, ais:readAIs(),
+    defRate:num('pr_rate'), defUnit:$('pr_unit').value,
+    rei:num('pr_rei'), phi:num('pr_phi'),
+    rup:$('pr_rup').checked, verified:$('pr_ver').checked, notes:val('pr_notes')};
+  const i = db.products.findIndex(p => p.id === rec.id);
+  if(i >= 0) db.products[i] = rec; else db.products.push(rec);
+  db.products.sort((a,b) => a.name.localeCompare(b.name));
+  save(); toast('Chemical saved'); go('products');
+}
+function delProd(){
+  const used = db.apps.filter(a => (a.mix||[]).some(m => m.productId === editingProd)).length;
+  if(used){ toast('Used by '+used+' application'+(used>1?'s':'')+' - cannot delete'); return; }
+  if(!confirm('Delete this chemical?')) return;
+  db.products = db.products.filter(p => p.id !== editingProd);
+  save(); toast('Deleted'); go('products');
+}
+
+/* ---------- export ---------- */
+function renderExport(){
+  const years = Object.keys(db.apps.reduce((o,a) => {
+    const y = (a.date||'').slice(0,4); if(y) o[y]=1; return o;
+  }, {})).sort().reverse();
+  const thisYear = String(new Date().getFullYear());
+  if(years.indexOf(thisYear) < 0) years.unshift(thisYear);
+  $('ex_year').innerHTML = '<option value="">All years</option>' +
+    years.map(y => '<option>'+y+'</option>').join('');
+  $('ex_year').value = thisYear;
+  $('s_appl').value = db.settings.applicator || ''; $('s_lic').value = db.settings.license || '';
+  $('s_gpa').value  = db.settings.gpa  != null ? db.settings.gpa  : '';
+  $('s_tank').value = db.settings.tank != null ? db.settings.tank : '';
+  renderLimits();
+  $('aboutTxt').innerHTML =
+    db.apps.length+' application'+(db.apps.length===1?'':'s')+' &middot; ' +
+    db.fields.length+' field'+(db.fields.length===1?'':'s')+' &middot; ' +
+    db.products.length+' chemical'+(db.products.length===1?'':'s')+' stored on this device.' +
+    '<br>Version 1.1 &middot; works with no internet connection &middot; nothing leaves the phone.';
+}
+
+// One row per a.i. actually in use, plus any that already have a cap set.
+function renderLimits(){
+  const names = {};
+  db.products.forEach(p => (p.ais||[]).forEach(a => { if(a.name) names[a.name.toLowerCase()] = a.name; }));
+  Object.keys(db.aiLimits).forEach(k => { if(!names[k]) names[k] = k; });
+  const keys = Object.keys(names).sort();
+  if(!keys.length){ $('limitList').innerHTML = '<div class="hint">Add some chemicals first.</div>'; return; }
+  $('limitList').innerHTML = keys.map(k =>
+    '<div class="row" style="margin-top:10px;align-items:center">' +
+      '<div style="flex:2;font-size:14px">'+esc(names[k])+'</div>' +
+      '<input type="number" inputmode="decimal" step="0.01" style="flex:1" ' +
+        'value="'+(db.aiLimits[k] != null ? db.aiLimits[k] : '')+'" placeholder="no cap" ' +
+        'onchange="setLimit(\''+esc(k).replace(/'/g,"\\'")+'\', this.value)">' +
+    '</div>').join('');
+}
+function setLimit(k, v){
+  const n = parseFloat(v);
+  if(isFinite(n) && n > 0) db.aiLimits[k] = n; else delete db.aiLimits[k];
+  save(); toast('Season cap updated');
+}
+function saveSettings(){
+  db.settings = {applicator:val('s_appl'), license:val('s_lic'), gpa:num('s_gpa'), tank:num('s_tank')};
+  save(); toast('Defaults saved');
+}
+
+function appsIn(year){
+  return db.apps.slice()
+    .filter(a => !year || (a.date||'').slice(0,4) === year)
+    .sort((a,b) => (a.date+(a.start||'')).localeCompare(b.date+(b.start||'')));
+}
+
+// One row per product line - the sheet you filter and pivot.
+function buildRows(year){
+  const rows = [];
+  for(const a of appsIn(year)){
+    const f = db.fields.find(x => x.id === a.fieldId) || {};
+    for(const m of (a.mix||[])){
+      const p = db.products.find(x => x.id === m.productId) || {};
+      const c = lineCalc(p, m.rate, m.unit, a.acres, a.gpa, a.tank);
+      rows.push({
+        'Date':a.date, 'Start':a.start, 'End':a.end,
+        'Field':f.name || '', 'Location':f.loc || '', 'Acres Treated':a.acres,
+        'Crop':a.crop || '', 'Target Pest':a.pest || '',
+        'Product':p.name || '', 'EPA Reg No':p.epa || '', 'Restricted Use':p.rup ? 'RUP' : '',
+        'Active Ingredients':aiSummary(p), 'Formulation':p.form === 'dry' ? 'Dry' : 'Liquid',
+        'Rate per Acre':m.rate, 'Rate Unit':(m.unit||'')+'/ac',
+        'Total Product':c.totalNative, 'Total Product Unit':m.unit || '',
+        'Total Lb AI per Acre':c.lbAIperAcre == null ? null : +c.lbAIperAcre.toFixed(4),
+        'Total Lb AI':c.totalLbAI == null ? null : +c.totalLbAI.toFixed(3),
+        'Carrier gal/ac':a.gpa, 'Total Water (gal)':(a.acres&&a.gpa)?a.acres*a.gpa:null,
+        'Tank Size (gal)':a.tank, 'Acres per Tank':c.acresPerTank,
+        'Product per Tank':c.perTank, 'Tank Loads':c.tanks,
+        'Wind (mph)':a.wind, 'Wind Dir':a.windDir || '', 'Temp (F)':a.temp, 'Humidity (%)':a.hum,
+        'Sky':a.sky || '', 'REI (hr)':p.rei, 'PHI (days)':p.phi,
+        'Label Verified':p.verified ? 'Yes' : 'NO - CHECK',
+        'Applicator':a.applicator || '', 'License':a.license || '',
+        'Equipment':a.equip || '', 'GPS':a.gps || '', 'Notes':a.notes || ''
+      });
+    }
+  }
+  return rows;
+}
+
+// One row per active ingredient per product per pass - the compliance sheet.
+function buildAIRows(year){
+  const rows = [];
+  for(const a of appsIn(year)){
+    const f = db.fields.find(x => x.id === a.fieldId) || {};
+    for(const m of (a.mix||[])){
+      const p = db.products.find(x => x.id === m.productId) || {};
+      const c = lineCalc(p, m.rate, m.unit, a.acres, a.gpa, a.tank);
+      for(const ai of c.ais){
+        rows.push({'Date':a.date, 'Field':f.name||'', 'Acres Treated':a.acres,
+          'Crop':a.crop||'', 'Product':p.name||'', 'EPA Reg No':p.epa||'',
+          'Active Ingredient':ai.name,
+          'Lb AI per Acre':ai.lbPerAcre == null ? null : +ai.lbPerAcre.toFixed(4),
+          'Total Lb AI':ai.totalLb == null ? null : +ai.totalLb.toFixed(3),
+          'Rate per Acre':m.rate, 'Rate Unit':(m.unit||'')+'/ac',
+          'Applicator':a.applicator||''});
+      }
+    }
+  }
+  return rows;
+}
+
+function buildSummary(year){
+  return appsIn(year).map(a => {
+    const f = db.fields.find(x => x.id === a.fieldId) || {};
+    const names = (a.mix||[]).map(m => {
+      const p = db.products.find(x => x.id === m.productId);
+      return p ? p.name+' @ '+m.rate+' '+m.unit+'/ac' : '';
+    }).filter(Boolean).join('; ');
+    return {'Date':a.date, 'Start':a.start, 'End':a.end, 'Field':f.name||'',
+      'Acres Treated':a.acres, 'Crop':a.crop||'', 'Target Pest':a.pest||'',
+      'Tank Mix':names, 'Carrier gal/ac':a.gpa,
+      'Total Water (gal)':(a.acres&&a.gpa)?a.acres*a.gpa:null,
+      'Wind (mph)':a.wind, 'Wind Dir':a.windDir||'', 'Temp (F)':a.temp, 'Humidity (%)':a.hum,
+      'Applicator':a.applicator||'', 'License':a.license||'', 'Equipment':a.equip||'',
+      'GPS':a.gps||'', 'Notes':a.notes||''};
+  });
+}
+
+// Year x field x active ingredient, against the season cap.
+function buildSeason(year){
+  const agg = {};
+  for(const a of db.apps){
+    const y = (a.date||'').slice(0,4);
+    if(year && y !== year) continue;
+    const f = db.fields.find(x => x.id === a.fieldId) || {};
+    for(const m of (a.mix||[])){
+      const p = db.products.find(x => x.id === m.productId) || {};
+      const c = lineCalc(p, m.rate, m.unit, a.acres, null, null);
+      for(const ai of c.ais){
+        if(ai.lbPerAcre == null) continue;
+        const key = y+'|'+(f.name||'')+'|'+ai.name.toLowerCase();
+        const r = agg[key] || (agg[key] = {'Year':y, 'Field':f.name||'',
+          'Active Ingredient':ai.name, 'Passes':0, 'Acres Treated (sum)':0,
+          'Lb AI per Acre':0, 'Total Lb AI':0, 'Season Cap Lb AI/ac':'', 'Over Cap?':''});
+        r['Passes'] += 1;
+        r['Acres Treated (sum)'] += a.acres || 0;
+        r['Lb AI per Acre'] += ai.lbPerAcre;
+        r['Total Lb AI'] += ai.totalLb || 0;
+      }
+    }
+  }
+  return Object.keys(agg).map(k => {
+    const r = agg[k];
+    const cap = db.aiLimits[r['Active Ingredient'].toLowerCase()];
+    r['Lb AI per Acre'] = +r['Lb AI per Acre'].toFixed(4);
+    r['Total Lb AI']    = +r['Total Lb AI'].toFixed(3);
+    r['Season Cap Lb AI/ac'] = cap != null ? cap : '';
+    r['Over Cap?'] = (cap != null && r['Lb AI per Acre'] > cap) ? 'YES' : '';
+    return r;
+  }).sort((a,b) => (a.Year+a.Field+a['Active Ingredient'])
+                    .localeCompare(b.Year+b.Field+b['Active Ingredient']));
+}
+
+function stamp(){ return new Date().toISOString().slice(0,10); }
+
+async function exportXLSX(){
+  if(typeof XLSX === 'undefined'){
+    toast('Excel library not loaded - using CSV'); return exportCSV();
+  }
+  const year = $('ex_year').value;
+  const rows = buildRows(year);
+  if(!rows.length){ toast('Nothing to export for that year'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const auto = data => Object.keys(data[0] || {}).map(k => ({
+    wch: Math.min(34, Math.max.apply(null, [10, k.length + 2].concat(
+      data.slice(0,200).map(r => String(r[k] == null ? '' : r[k]).length + 2))))
+  }));
+  const add = (data, name) => {
+    if(!data.length) return;
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = auto(data);
+    ws['!freeze'] = {xSplit:0, ySplit:1};
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+
+  add(rows, 'Applications');
+  add(buildAIRows(year), 'AI Detail');
+  add(buildSummary(year), 'By Application');
+  add(buildSeason(year), 'Season AI Totals');
+  add(db.fields.map(f => ({'Field':f.name, 'Acres':f.acres, 'Crop':f.crop||'',
+    'Location':f.loc||'', 'Notes':f.notes||''})), 'Fields');
+  add(db.products.map(p => ({'Product':p.name, 'EPA Reg No':p.epa||'',
+    'Active Ingredients':aiSummary(p), 'Formulation':p.form==='dry'?'Dry':'Liquid',
+    'Restricted Use':p.rup?'RUP':'', 'Label Verified':p.verified?'Yes':'NO - CHECK',
+    'Default Rate':p.defRate != null ? p.defRate : '', 'Rate Unit':(p.defUnit||'')+'/ac',
+    'Signal Word':p.signal||'', 'REI (hr)':p.rei != null ? p.rei : '',
+    'PHI (days)':p.phi != null ? p.phi : '', 'Notes':p.notes||''})), 'Chemicals');
+
+  const buf  = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([buf],
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  await deliver(blob, 'Spray_Records_'+(year||'all')+'_'+stamp()+'.xlsx');
+}
+
+function exportCSV(){
+  const year = $('ex_year').value;
+  const rows = buildRows(year);
+  if(!rows.length){ toast('Nothing to export for that year'); return; }
+  const cols = Object.keys(rows[0]);
+  const cell = v => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const csv = '\ufeff' + [cols.join(',')]
+    .concat(rows.map(r => cols.map(c => cell(r[c])).join(','))).join('\r\n');
+  deliver(new Blob([csv], {type:'text/csv;charset=utf-8'}),
+          'Spray_Records_'+(year||'all')+'_'+stamp()+'.csv');
+}
+
+function backup(){
+  deliver(new Blob([JSON.stringify(db, null, 2)], {type:'application/json'}),
+          'field-log-backup_'+stamp()+'.json');
+}
+function restore(input){
+  const file = input.files && input.files[0]; input.value = '';
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!d || !Array.isArray(d.apps)) throw new Error('not a backup file');
+      if(!confirm('Replace everything on this device with the backup?\n\n' +
+        d.apps.length+' applications, '+(d.fields||[]).length+' fields, ' +
+        (d.products||[]).length+' chemicals.')) return;
+      db = migrate(Object.assign({fields:[],products:[],apps:[],settings:{},aiLimits:{}}, d));
+      save(); toast('Backup restored'); go('log');
+    }catch(e){ toast('Could not read that file'); }
+  };
+  r.readAsText(file);
+}
+
+// iOS has no real "download" - the share sheet is how a file reaches Files or Mail.
+async function deliver(blob, filename){
+  try{
+    const file = new File([blob], filename, {type: blob.type});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:filename});
+      return;
+    }
+  }catch(e){
+    if(e && e.name === 'AbortError') return;   // user dismissed the share sheet
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast('Saved: ' + filename);
+}
+
+/* ---------- boot ---------- */
+setForm('liquid');
+go('log');
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('sw', e)));
+}
+</script>
+</body>
+</html>
